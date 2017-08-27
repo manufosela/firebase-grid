@@ -1,0 +1,305 @@
+<link rel="import" href="../polymer/polymer-element.html">
+<link rel="import" href="../polymerfire/firebase-app.html">
+<link rel="import" href="../polymerfire/firebase-auth.html">
+<link rel="import" href="../polymerfire/firebase-document.html">
+<link rel="import" href="../paper-spinner/paper-spinner-lite.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-dialog/paper-dialog.html">
+
+<dom-module id="firebase-grid">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+      .error_msg { font-weight:bold; color:blue; padding:15px; }
+      .path { color:green;}
+      #formfieldlayer { margin-bottom:30px; }
+      .inlineblock { display:inline-block; }
+      .slot { margin-right: 10px; font-size: 10px; font-weight: bold; color: #AAA; }
+
+      paper-spinner-lite {
+        position:absolute;
+      }
+      paper-spinner-lite.blue::shadow .circle {
+        border-color: #4285f4;
+      }
+      paper-button.register {
+        background: gray;
+        color: blue;
+      }
+      paper-button.register:hover {
+        background: #CCC;
+        color: cyan;
+      }
+      paper-button.login {
+        background: green;
+        color: yellow;
+      }
+      paper-button.login:hover {
+        background: lime;
+        color: green;
+      }
+      paper-button.save {
+        background: yellow;
+        color: blue;
+      }
+      paper-button.save:hover {
+        background: cyan;
+        color: yellow;
+      }
+      paper-button[disabled],
+      paper-button[toggles][active] {
+        background: red;
+      }
+      .responstable {
+        margin: 1em 0;
+        width: 100%;
+        overflow: hidden;
+        background: #FFF;
+        color: #024457;
+        border-radius: 10px;
+        border: 1px solid #167F92;
+      }
+      .responstable tr {
+        border: 1px solid #D9E4E6;
+      }
+      .responstable tr:nth-child(odd) {
+        background-color: #EAF3F3;
+      }
+      .responstable th {
+        display: none;
+        border: 1px solid #FFF;
+        background-color: #167F92;
+        color: #FFF;
+        padding: 1em;
+      }
+      .responstable th:first-child {
+        display: table-cell;
+        text-align: center;
+      }
+      .responstable th:nth-child(2) {
+        display: table-cell;
+      }
+      .responstable th:nth-child(2) span {
+        display: none;
+      }
+      .responstable th:nth-child(2):after {
+        content: attr(data-th);
+      }
+      @media (min-width: 480px) {
+        .responstable th:nth-child(2) span {
+          display: block;
+        }
+        .responstable th:nth-child(2):after {
+          display: none;
+        }
+      }
+      .responstable td {
+        display: block;
+        word-wrap: break-word;
+        max-width: 7em;
+      }
+      .responstable td:first-child {
+        display: table-cell;
+        text-align: center;
+        border-right: 1px solid #D9E4E6;
+      }
+      @media (min-width: 480px) {
+        .responstable td {
+          border: 1px solid #D9E4E6;
+        }
+      }
+      .responstable th, .responstable td {
+        text-align: left;
+        margin: .5em 1em;
+      }
+      @media (min-width: 480px) {
+        .responstable th, .responstable td {
+          display: table-cell;
+          padding: 1em;
+        }
+      }
+    </style>
+    <firebase-app
+      api-key="{{apiKey}}"
+      auth-domain="{{domain}}.firebaseapp.com"
+      database-url="https://{{domain}}.firebaseio.com"
+      project-id="{{domain}}"
+      storage-bucket="{{domain}}.appspot.com">
+    </firebase-app>
+    
+    <firebase-auth id="auth" user="{{user}}" provider="google" on-error="handleError"></firebase-auth>
+    <firebase-document
+      id="docfire"
+      data="{{data}}">
+    </firebase-document>
+
+    <paper-spinner-lite id="spinner" class="blue" active="[[datauser]]"></paper-spinner-lite>
+
+    <div id="formfieldlayer">
+      <table class="responstable" id="thedata">
+        <tr>
+          <template is="dom-repeat" items="{{fields}}">
+              <th>{{item}}</th>
+          </template>
+        </tr>
+      </table>
+    </div>
+
+    <paper-button class="login" raised on-tap="login" hidden$="[[user]]">Sign in</paper-button>
+    <paper-button class="login" raised on-tap="logout" hidden$="[[!user]]">Sign out</paper-button>
+
+    <paper-dialog id="mensaje_popup"></paper-dialog>
+  </template>
+
+  <script>
+    class FirebaseGrid extends Polymer.Element {
+      static get is() { return 'firebase-grid'; }
+      static get properties() {
+        return {
+          path:{
+            type: String
+          },
+          data: {
+            type: Object,
+            observer:'_dataChange'
+          },
+          dataKeys:{
+            type: Object
+          },
+          user: {
+            type: Object,
+            observer:'_userChange'
+          },
+          datauser: {
+            type: Boolean,
+            computed: '_dataUser(user, data)'
+          },
+          signInType: {
+            type:String,
+            value:'signInWithPopup'
+          },
+          _counter: {
+            type: Array,
+            value: []
+          },
+          _arrKeys: {
+            type: Array,
+            value: []
+          },
+          fields: {
+            type: Array,
+            value:[]
+          },
+          apiKey: String,
+          domain: String,
+          log: {
+            type: Object,
+            computed: '_log(debug)'
+          },
+          debug:{
+            type: Boolean,
+            value: false
+          }
+        };
+      }
+
+      connectedCallback(){
+        super.connectedCallback();
+        Polymer.RenderStatus.beforeNextRender(this, function() {
+          this.getFields();
+        });
+      }
+
+      drawField(thedata){
+        var tr = document.createElement('tr');
+        for(var j=0; j<this.fields.length; j++) {
+          var td = document.createElement('th');
+          td.innerHTML = this.fields[j];
+          tr.appendChild(td);
+          this.log(this.fields[j]);
+        }
+        thedata.appendChild(tr);
+      }
+
+      getFields() {
+        var fields = this.querySelectorAll("grid-field");
+        fields.forEach(function(element) {
+          this.fields.push(element.getAttribute('name'));
+        }, this);
+        this.log(this.fields);
+      }
+ 
+      _log(debug){
+        return (debug)?console.log:function(){};
+      }
+
+      _dataUser(user, data) {
+        let lenData = Object.keys(data).length;
+        this.log('user && data', !!(user && lenData));
+        return !(user && lenData);
+      }
+      
+      _dataChange() {
+        var thedata = this.root.querySelector('#thedata');
+        thedata.innerHTML='';
+        this.drawField(thedata);
+        this.log('_dataChange()', this.data);
+        if (this.data[0]) {
+          this.log('data 0');
+          this._arrKeys = Object.keys(this.data[0]);
+          for(var i=0; i<this.data.length; i++) {
+            var tr = document.createElement('tr');
+            for(var j=0; j<this.fields.length; j++) {
+              var td = document.createElement('td');
+              td.innerHTML = this.data[i][this.fields[j]];
+              tr.appendChild(td);
+              this.log('data  ', i, j, this.data[i][this.fields[j]]);
+            }
+            thedata.appendChild(tr);
+          }
+        }
+      }
+      _userChange(){
+        if (this.user && !this.$.docfire.path) {
+          this.log('path ', this.path);
+          this.$.docfire.path = this.path;
+        }
+      }
+      login() {
+        return this.$.auth[this.signInType]().then(this.signin.bind(this));
+      }
+
+      logout() {
+        return this.$.auth.signOut().then(this.signout.bind(this));
+      }
+
+      signin() {
+        this.$.docfire.path = this.path;
+        this.log('logged', this.data, this.path);
+      }
+
+      signout(){
+        this.$.docfire.path = null;
+        this._showError('none');
+        this.log('log out');
+      } 
+      _showError(msg){
+        this.$.formfieldlayer.innerHTML = '';
+        var arrMsg = {
+          nopath: 'Path <span class="path">' + this.path + '</span> doesn\'t exists',
+          none: ''
+        }
+        var d = (!this.root.querySelector('.error_msg'))?document.createElement('div'):this.root.querySelector('.error_msg');
+        d.className='error_msg';
+        d.innerHTML = arrMsg[msg];
+        if (!this.root.querySelector('.error_msg')) {
+          this.$.formfieldlayer.appendChild(d);
+        }
+      }
+    }
+
+    window.customElements.define(FirebaseGrid.is, FirebaseGrid);
+  </script>
+</dom-module>

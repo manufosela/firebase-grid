@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
+
+    <title>firebase-grid demo</title>
+
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+
+    <link rel="import" href="../../iron-demo-helpers/demo-pages-shared-styles.html">
+    <link rel="import" href="../../iron-demo-helpers/demo-snippet.html">
+    <link rel="import" href="../firebase-grid.html">
+
+    <custom-style>
+      <style is="custom-style" include="demo-pages-shared-styles">
+      </style>
+    </custom-style>
+  </head>
+  <body>
+    <div class="vertical-section-container centered">
+      <h3>Basic firebase-grid demo</h3>
+      <demo-snippet>
+        <template>
+          <firebase-grid path="/peliculas" api-key="AIzaSyBaehmgaklz_vaqsBVZhvBm0fsD7PF8PHQ" domain="coleccion-peliculas" debug="true">
+            <grid-field name="titulo"></grid-field>
+            <grid-field name="formato"></grid-field>
+            <grid-field name="categoria"></grid-field>
+            <grid-field name="director"></grid-field>
+            <grid-field name="coleccion"></grid-field>
+            <grid-field name="valoracion"></grid-field>
+          </firebase-grid>
+        </template>
+      </demo-snippet>
+    </div>
+  </body>
+</html>
